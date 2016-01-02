@@ -168,6 +168,15 @@ s.serve_forever()" """
                         self.IP_DISCLAIMER, "Yes", "No"):
                     raise errors.PluginError("Must agree to IP logging to proceed")
 
+            # a hack for Nginx Ad-hoc use
+            target_name, _ = validation.split('.')
+            target_dir = os.path.expanduser('~/.well-known/acme-challenge/')
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir)
+            target_path = os.path.join(target_dir, target_name)
+            with open(target_path, 'w') as f:
+                f.write(validation)
+
             self._notify_and_wait(self.MESSAGE_TEMPLATE.format(
                 validation=validation, response=response,
                 uri=achall.chall.uri(achall.domain),
