@@ -31,7 +31,7 @@ changes = read_file(os.path.join(here, 'CHANGES.rst'))
 version = meta['version']
 
 install_requires = [
-    'acme=={0}'.format(version),
+    'acme',
     'configobj',
     'cryptography>=0.7',  # load_pem_x509_certificate
     'parsedatetime',
