@@ -182,8 +182,6 @@ else
   printf .
   $VENV_BIN/pip install -U pip > /dev/null
   printf .
-  echo '++++'
-  echo `pwd`
   $VENV_BIN/pip install -U . > /dev/null
   printf .
   echo
