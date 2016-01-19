@@ -26,12 +26,14 @@ here = os.path.abspath(os.path.dirname(__file__))
 init_fn = os.path.join(here, 'letsencrypt', '__init__.py')
 meta = dict(re.findall(r"""__([a-z]+)__ = '([^']+)""", read_file(init_fn)))
 
-readme = read_file(os.path.join(here, 'README.rst'))
-changes = read_file(os.path.join(here, 'CHANGES.rst'))
+readme = ''
+changes = ''
 version = meta['version']
 
+# Please update tox.ini when modifying dependency version requirements
 install_requires = [
-    'acme',
+    'acme=={0}'.format(version),
+    'ConfigArgParse>=0.10.0',  # python2.6 support, upstream #17
     'configobj',
     'cryptography>=0.7',  # load_pem_x509_certificate
     'parsedatetime',
@@ -51,12 +53,10 @@ if sys.version_info < (2, 7):
     install_requires.extend([
         # only some distros recognize stdlib argparse as already satisfying
         'argparse',
-        'ConfigArgParse>=0.10.0',  # python2.6 support, upstream #17
         'mock<1.1.0',
     ])
 else:
     install_requires.extend([
-        'ConfigArgParse',
         'mock',
     ])
 

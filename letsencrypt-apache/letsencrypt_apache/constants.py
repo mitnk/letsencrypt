@@ -6,9 +6,11 @@ from letsencrypt import le_util
 CLI_DEFAULTS_DEBIAN = dict(
     server_root="/etc/apache2",
     vhost_root="/etc/apache2/sites-available",
-    ctl="apache2ctl",
+    vhost_files="*",
     version_cmd=['apache2ctl', '-v'],
     define_cmd=['apache2ctl', '-t', '-D', 'DUMP_RUN_CFG'],
+    restart_cmd=['apache2ctl', 'graceful'],
+    conftest_cmd=['apache2ctl', 'configtest'],
     enmod="a2enmod",
     dismod="a2dismod",
     le_vhost_ext="-le-ssl.conf",
@@ -19,9 +21,11 @@ CLI_DEFAULTS_DEBIAN = dict(
 CLI_DEFAULTS_CENTOS = dict(
     server_root="/etc/httpd",
     vhost_root="/etc/httpd/conf.d",
-    ctl="apachectl",
+    vhost_files="*.conf",
     version_cmd=['apachectl', '-v'],
     define_cmd=['apachectl', '-t', '-D', 'DUMP_RUN_CFG'],
+    restart_cmd=['apachectl', 'graceful'],
+    conftest_cmd=['apachectl', 'configtest'],
     enmod=None,
     dismod=None,
     le_vhost_ext="-le-ssl.conf",
@@ -32,9 +36,11 @@ CLI_DEFAULTS_CENTOS = dict(
 CLI_DEFAULTS_GENTOO = dict(
     server_root="/etc/apache2",
     vhost_root="/etc/apache2/vhosts.d",
-    ctl="apache2ctl",
+    vhost_files="*.conf",
     version_cmd=['/usr/sbin/apache2', '-v'],
     define_cmd=['/usr/sbin/apache2', '-t', '-D', 'DUMP_RUN_CFG'],
+    restart_cmd=['apache2ctl', 'graceful'],
+    conftest_cmd=['apache2ctl', 'configtest'],
     enmod=None,
     dismod=None,
     le_vhost_ext="-le-ssl.conf",
@@ -67,7 +73,8 @@ AUGEAS_LENS_DIR = pkg_resources.resource_filename(
 
 REWRITE_HTTPS_ARGS = [
     "^", "https://%{SERVER_NAME}%{REQUEST_URI}", "[L,QSA,R=permanent]"]
-"""Apache version<2.3.9 rewrite rule arguments used for redirections to https vhost"""
+"""Apache version<2.3.9 rewrite rule arguments used for redirections to
+https vhost"""
 
 REWRITE_HTTPS_ARGS_WITH_END = [
     "^", "https://%{SERVER_NAME}%{REQUEST_URI}", "[END,QSA,R=permanent]"]
@@ -75,14 +82,14 @@ REWRITE_HTTPS_ARGS_WITH_END = [
     https vhost"""
 
 HSTS_ARGS = ["always", "set", "Strict-Transport-Security",
-    "\"max-age=31536000\""]
+             "\"max-age=31536000\""]
 """Apache header arguments for HSTS"""
 
 UIR_ARGS = ["always", "set", "Content-Security-Policy",
-    "upgrade-insecure-requests"]
+            "upgrade-insecure-requests"]
 
 HEADER_ARGS = {"Strict-Transport-Security": HSTS_ARGS,
-        "Upgrade-Insecure-Requests": UIR_ARGS}
+               "Upgrade-Insecure-Requests": UIR_ARGS}
 
 
 def os_constant(key):
