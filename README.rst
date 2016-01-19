@@ -12,7 +12,7 @@ Preparation
 -----------
 
 The **Preparation** only need to do once. Jump to **Usage** section
-if you already done it.
+if you've already done it.
 
 1) **Checkout the code & build the virtualenv**
 
@@ -22,7 +22,7 @@ if you already done it.
     $ cd letsencrypt
     $ sudo ./letsencrypt-auto --help
 
-This will create an virtualenv at `~/.local/share/letsencrypt`.
+This will create an virtualenv at ``~/.local/share/letsencrypt``.
 
 2) **Setup Nginx Configs**
 
@@ -75,5 +75,5 @@ Reload Nginx & That's it.
 
 ---------
 
-See this article to see set SSL certs on Nginx:
+See this article for how to config SSL certs in Nginx:
 https://mitnk.com/2015/11/lets_encrypt/
