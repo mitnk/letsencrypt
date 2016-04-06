@@ -1,5 +1,5 @@
-Let's Encrypt Client
-====================
+Let's Encrypt Client for Nginx
+==============================
 
 Disclaimer
 ----------
@@ -20,7 +20,8 @@ if you've already done it.
 
     $ git clone https://github.com/mitnk/letsencrypt
     $ cd letsencrypt
-    $ sudo ./letsencrypt-auto --help
+    $ ./letsencrypt-auto --help
+    $ ./post-letsencrypt-auto.sh
 
 This will create an virtualenv at ``~/.local/share/letsencrypt``.
 
@@ -55,23 +56,13 @@ Enter virtualenv:
 
 ::
 
-    $ source .local/share/letsencrypt/bin/activate
-
-Get/Renew Certs.
-
-::
-
-    (letsencrypt) $ sudo ~/.local/share/letsencrypt/bin/letsencrypt \
-        -d mitnk.com -d www.mitnk.com --manual certonly
-
-Leave virtualenv:
-
-::
-
-    $ deactivate
+    $ sudo /home/mitnk/.local/share/letsencrypt/bin/letsencrypt --manual-public-ip-logging-ok --renew-by-default -d hugo.wang -d www.hugo.wang -a manual certonly
 
 Reload Nginx & That's it.
 
+::
+
+    $ sudo nginx -s reload
 
 ---------
 
