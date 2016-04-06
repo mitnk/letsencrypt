@@ -6,6 +6,7 @@ import mock
 import zope.component
 
 from letsencrypt.display import util as display_util
+from letsencrypt import errors
 
 from letsencrypt_apache import obj
 
@@ -19,7 +20,7 @@ class SelectVhostTest(unittest.TestCase):
         zope.component.provideUtility(display_util.FileDisplay(sys.stdout))
         self.base_dir = "/example_path"
         self.vhosts = util.get_vh_truth(
-            self.base_dir, "debian_apache_2_4/two_vhost_80")
+            self.base_dir, "debian_apache_2_4/multiple_vhosts")
 
     @classmethod
     def _call(cls, vhosts):
@@ -30,6 +31,14 @@ class SelectVhostTest(unittest.TestCase):
     def test_successful_choice(self, mock_util):
         mock_util().menu.return_value = (display_util.OK, 3)
         self.assertEqual(self.vhosts[3], self._call(self.vhosts))
+
+    @mock.patch("letsencrypt_apache.display_ops.zope.component.getUtility")
+    def test_noninteractive(self, mock_util):
+        mock_util().menu.side_effect = errors.MissingCommandlineFlag("no vhost default")
+        try:
+            self._call(self.vhosts)
+        except errors.MissingCommandlineFlag as e:
+            self.assertTrue("VirtualHost directives" in e.message)
 
     @mock.patch("letsencrypt_apache.display_ops.zope.component.getUtility")
     def test_more_info_cancel(self, mock_util):

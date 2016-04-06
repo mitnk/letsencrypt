@@ -4,7 +4,7 @@ from setuptools import setup
 from setuptools import find_packages
 
 
-version = '0.2.0.dev0'
+version = '0.5.0.dev0'
 
 # Please update tox.ini when modifying dependency version requirements
 install_requires = [
@@ -12,7 +12,9 @@ install_requires = [
     'letsencrypt=={0}'.format(version),
     'PyOpenSSL',
     'pyparsing>=1.5.5',  # Python3 support; perhaps unnecessary?
-    'setuptools',  # pkg_resources
+    # For pkg_resources. >=1.0 so pip resolves it to a version cryptography
+    # will tolerate; see #2599:
+    'setuptools>=1.0',
     'zope.interface',
 ]
 
@@ -63,4 +65,5 @@ setup(
             'nginx = letsencrypt_nginx.configurator:NginxConfigurator',
         ],
     },
+    test_suite='letsencrypt_nginx',
 )

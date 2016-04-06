@@ -34,6 +34,9 @@ else
     echo Releasing developer version "$version"...
 fi
 
+if [ "$RELEASE_OPENSSL_PUBKEY" = "" ] ; then
+    RELEASE_OPENSSL_PUBKEY="`realpath \`dirname $0\``/eff-pubkey.pem"
+fi
 RELEASE_GPG_KEY=${RELEASE_GPG_KEY:-A2CFB51FA275A7286234E7B24D17C995CD9775F2}
 # Needed to fix problems with git signatures and pinentry
 export GPG_TTY=$(tty)
@@ -92,9 +95,6 @@ SetVersion() {
 }
 
 SetVersion "$version"
-git commit --gpg-sign="$RELEASE_GPG_KEY" -m "Release $version"
-git tag --local-user "$RELEASE_GPG_KEY" \
-    --sign --message "Release $version" "$tag"
 
 echo "Preparing sdists and wheels"
 for pkg_dir in . $SUBPKGS
@@ -115,6 +115,7 @@ do
   cd -
 done
 
+
 mkdir "dist.$version"
 mv dist "dist.$version/letsencrypt"
 for pkg_dir in $SUBPKGS
@@ -132,8 +133,12 @@ virtualenv --no-site-packages ../venv
 . ../venv/bin/activate
 pip install -U setuptools
 pip install -U pip
-# Now, use our local PyPI
+# Now, use our local PyPI. Disable cache so we get the correct KGS even if we
+# (or our dependencies) have conditional dependencies implemented with if
+# statements in setup.py and we have cached wheels lying around that would
+# cause those ifs to not be evaluated.
 pip install \
+  --no-cache-dir \
   --extra-index-url http://localhost:$PORT \
   letsencrypt $SUBPKGS
 # stop local PyPI
@@ -156,6 +161,40 @@ for module in letsencrypt $subpkgs_modules ; do
 done
 deactivate
 
+# pin pip hashes of the things we just built
+for pkg in acme letsencrypt letsencrypt-apache ; do
+    echo $pkg==$version \\
+    pip hash dist."$version/$pkg"/*.{whl,gz} | grep "^--hash" | python2 -c 'from sys import stdin; input = stdin.read(); print "   ", input.replace("\n--hash", " \\\n    --hash"),'
+done > /tmp/hashes.$$
+
+if ! wc -l /tmp/hashes.$$ | grep -qE "^\s*9 " ; then
+    echo Unexpected pip hash output
+    exit 1
+fi
+
+# perform hideous surgery on requirements.txt...
+head -n -9 letsencrypt-auto-source/pieces/letsencrypt-auto-requirements.txt > /tmp/req.$$
+cat /tmp/hashes.$$ >> /tmp/req.$$
+cp /tmp/req.$$ letsencrypt-auto-source/pieces/letsencrypt-auto-requirements.txt
+
+# ensure we have the latest built version of leauto
+letsencrypt-auto-source/build.py
+
+# and that it's signed correctly
+while ! openssl dgst -sha256 -verify $RELEASE_OPENSSL_PUBKEY -signature \
+        letsencrypt-auto-source/letsencrypt-auto.sig \
+        letsencrypt-auto-source/letsencrypt-auto            ; do
+   read -p "Please correctly sign letsencrypt-auto with offline-signrequest.sh"
+done
+
+# copy leauto to the root, overwriting the previous release version
+cp -p letsencrypt-auto-source/letsencrypt-auto letsencrypt-auto
+
+git add letsencrypt-auto letsencrypt-auto-source
+git diff --cached
+git commit --gpg-sign="$RELEASE_GPG_KEY" -m "Release $version"
+git tag --local-user "$RELEASE_GPG_KEY" --sign --message "Release $version" "$tag"
+
 cd ..
 echo Now in $PWD
 name=${root_without_le%.*}
@@ -176,6 +215,8 @@ echo twine upload "$root/dist.$version/*/*"
 
 if [ "$RELEASE_BRANCH" = candidate-"$version" ] ; then
     SetVersion "$nextversion".dev0
+    letsencrypt-auto-source/build.py
+    git add letsencrypt-auto-source/letsencrypt-auto
     git diff
     git commit -m "Bump version to $nextversion"
 fi

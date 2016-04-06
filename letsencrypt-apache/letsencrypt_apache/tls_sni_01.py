@@ -62,7 +62,7 @@ class ApacheTlsSni01(common.TLSSNI01):
             return []
         # Save any changes to the configuration as a precaution
         # About to make temporary changes to the config
-        self.configurator.save()
+        self.configurator.save("Changes before challenge setup", True)
 
         # Prepare the server for HTTPS
         self.configurator.prepare_server_https(
@@ -76,6 +76,7 @@ class ApacheTlsSni01(common.TLSSNI01):
 
         # Setup the configuration
         addrs = self._mod_config()
+        self.configurator.save("Don't lose mod_config changes", True)
         self.configurator.make_addrs_sni_ready(addrs)
 
         # Save reversible changes
@@ -107,7 +108,7 @@ class ApacheTlsSni01(common.TLSSNI01):
         self.configurator.reverter.register_file_creation(
             True, self.challenge_conf)
 
-        logger.debug("writing a config file with text: %s", config_text)
+        logger.debug("writing a config file with text:\n %s", config_text)
         with open(self.challenge_conf, "w") as new_conf:
             new_conf.write(config_text)
 
@@ -143,6 +144,8 @@ class ApacheTlsSni01(common.TLSSNI01):
         if len(self.configurator.parser.find_dir(
                 parser.case_i("Include"), self.challenge_conf)) == 0:
             # print "Including challenge virtual host(s)"
+            logger.debug("Adding Include %s to %s",
+                         self.challenge_conf, parser.get_aug_path(main_config))
             self.configurator.parser.add_dir(
                 parser.get_aug_path(main_config),
                 "Include", self.challenge_conf)

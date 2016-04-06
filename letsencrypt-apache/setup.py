@@ -4,14 +4,16 @@ from setuptools import setup
 from setuptools import find_packages
 
 
-version = '0.2.0.dev0'
+version = '0.5.0.dev0'
 
 # Please update tox.ini when modifying dependency version requirements
 install_requires = [
     'acme=={0}'.format(version),
     'letsencrypt=={0}'.format(version),
     'python-augeas',
-    'setuptools',  # pkg_resources
+    # For pkg_resources. >=1.0 so pip resolves it to a version cryptography
+    # will tolerate; see #2599:
+    'setuptools>=1.0',
     'zope.component',
     'zope.interface',
 ]
@@ -63,4 +65,5 @@ setup(
             'apache = letsencrypt_apache.configurator:ApacheConfigurator',
         ],
     },
+    test_suite='letsencrypt_apache',
 )

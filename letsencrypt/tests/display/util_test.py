@@ -4,6 +4,8 @@ import unittest
 
 import mock
 
+import letsencrypt.errors as errors
+
 from letsencrypt.display import util as display_util
 
 
@@ -121,6 +123,11 @@ class NcursesDisplayTest(unittest.TestCase):
             "message", width=display_util.WIDTH, height=display_util.HEIGHT,
             choices=choices)
 
+    @mock.patch("letsencrypt.display.util.dialog.Dialog.dselect")
+    def test_directory_select(self, mock_dselect):
+        self.displayer.directory_select("message")
+        self.assertEqual(mock_dselect.call_count, 1)
+
 
 class FileOutputDisplayTest(unittest.TestCase):
     """Test stdout display.
@@ -225,6 +232,15 @@ class FileOutputDisplayTest(unittest.TestCase):
                 self.displayer._scrub_checklist_input(list_, TAGS))
             self.assertEqual(set_tags, exp[i])
 
+    @mock.patch("letsencrypt.display.util.FileDisplay.input")
+    def test_directory_select(self, mock_input):
+        message = "msg"
+        result = (display_util.OK, "/var/www/html",)
+        mock_input.return_value = result
+
+        self.assertEqual(self.displayer.directory_select(message), result)
+        mock_input.assert_called_once_with(message)
+
     def test_scrub_checklist_input_invalid(self):
         # pylint: disable=protected-access
         indices = [
@@ -250,7 +266,7 @@ class FileOutputDisplayTest(unittest.TestCase):
                "This function is only meant to be for easy viewing{0}"
                "Test a really really really really really really really really "
                "really really really really long line...".format(os.linesep))
-        text = self.displayer._wrap_lines(msg)
+        text = display_util._wrap_lines(msg)
 
         self.assertEqual(text.count(os.linesep), 3)
 
@@ -277,6 +293,56 @@ class FileOutputDisplayTest(unittest.TestCase):
                 self.assertEqual(
                     self.displayer._get_valid_int_ans(3),
                     (display_util.CANCEL, -1))
+
+
+class NoninteractiveDisplayTest(unittest.TestCase):
+    """Test non-interactive display.
+
+    These tests are pretty easy!
+
+    """
+    def setUp(self):
+        super(NoninteractiveDisplayTest, self).setUp()
+        self.mock_stdout = mock.MagicMock()
+        self.displayer = display_util.NoninteractiveDisplay(self.mock_stdout)
+
+    def test_notification_no_pause(self):
+        self.displayer.notification("message", 10)
+        string = self.mock_stdout.write.call_args[0][0]
+
+        self.assertTrue("message" in string)
+
+    def test_input(self):
+        d = "an incomputable value"
+        ret = self.displayer.input("message", default=d)
+        self.assertEqual(ret, (display_util.OK, d))
+        self.assertRaises(errors.MissingCommandlineFlag, self.displayer.input, "message")
+
+    def test_menu(self):
+        ret = self.displayer.menu("message", CHOICES, default=1)
+        self.assertEqual(ret, (display_util.OK, 1))
+        self.assertRaises(errors.MissingCommandlineFlag, self.displayer.menu, "message", CHOICES)
+
+    def test_yesno(self):
+        d = False
+        ret = self.displayer.yesno("message", default=d)
+        self.assertEqual(ret, d)
+        self.assertRaises(errors.MissingCommandlineFlag, self.displayer.yesno, "message")
+
+    def test_checklist(self):
+        d = [1, 3]
+        ret = self.displayer.checklist("message", TAGS, default=d)
+        self.assertEqual(ret, (display_util.OK, d))
+        self.assertRaises(errors.MissingCommandlineFlag, self.displayer.checklist, "message", TAGS)
+
+    def test_directory_select(self):
+        default = "/var/www/html"
+        expected = (display_util.OK, default)
+        actual = self.displayer.directory_select("msg", default)
+        self.assertEqual(expected, actual)
+
+        self.assertRaises(
+            errors.MissingCommandlineFlag, self.displayer.directory_select, "msg")
 
 
 class SeparateListInputTest(unittest.TestCase):

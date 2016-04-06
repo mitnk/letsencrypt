@@ -1,11 +1,11 @@
 """Plugin common functions."""
 import os
-import pkg_resources
 import re
 import shutil
 import tempfile
 
 import OpenSSL
+import pkg_resources
 import zope.interface
 
 from acme.jose import util as jose_util
@@ -31,15 +31,44 @@ hostname_regex = re.compile(
     r"^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*[a-z]+$", re.IGNORECASE)
 
 
+@zope.interface.implementer(interfaces.IPlugin)
 class Plugin(object):
     """Generic plugin."""
-    zope.interface.implements(interfaces.IPlugin)
-    # classProvides is not inherited, subclasses must define it on their own
-    #zope.interface.classProvides(interfaces.IPluginFactory)
+    # provider is not inherited, subclasses must define it on their own
+    # @zope.interface.provider(interfaces.IPluginFactory)
 
     def __init__(self, config, name):
         self.config = config
         self.name = name
+
+    @jose_util.abstractclassmethod
+    def add_parser_arguments(cls, add):
+        """Add plugin arguments to the CLI argument parser.
+
+        NOTE: If some of your flags interact with others, you can
+        use cli.report_config_interaction to register this to ensure
+        values are correctly saved/overridable during renewal.
+
+        :param callable add: Function that proxies calls to
+            `argparse.ArgumentParser.add_argument` prepending options
+            with unique plugin name prefix.
+
+        """
+
+    @classmethod
+    def inject_parser_options(cls, parser, name):
+        """Inject parser options.
+
+        See `~.IPlugin.inject_parser_options` for docs.
+
+        """
+        # dummy function, doesn't check if dest.startswith(self.dest_namespace)
+        def add(arg_name_no_prefix, *args, **kwargs):
+            # pylint: disable=missing-docstring
+            return parser.add_argument(
+                "--{0}{1}".format(option_namespace(name), arg_name_no_prefix),
+                *args, **kwargs)
+        return cls.add_parser_arguments(add)
 
     @property
     def option_namespace(self):
@@ -64,32 +93,6 @@ class Plugin(object):
     def conf(self, var):
         """Find a configuration value for variable ``var``."""
         return getattr(self.config, self.dest(var))
-
-    @classmethod
-    def inject_parser_options(cls, parser, name):
-        """Inject parser options.
-
-        See `~.IPlugin.inject_parser_options` for docs.
-
-        """
-        # dummy function, doesn't check if dest.startswith(self.dest_namespace)
-        def add(arg_name_no_prefix, *args, **kwargs):
-            # pylint: disable=missing-docstring
-            return parser.add_argument(
-                "--{0}{1}".format(option_namespace(name), arg_name_no_prefix),
-                *args, **kwargs)
-        return cls.add_parser_arguments(add)
-
-    @jose_util.abstractclassmethod
-    def add_parser_arguments(cls, add):
-        """Add plugin arguments to the CLI argument parser.
-
-        :param callable add: Function that proxies calls to
-            `argparse.ArgumentParser.add_argument` prepending options
-            with unique plugin name prefix.
-
-        """
-
 # other
 
 
@@ -100,14 +103,24 @@ class Addr(object):
     :param str port: port number or \*, or ""
 
     """
-    def __init__(self, tup):
+    def __init__(self, tup, ipv6=False):
         self.tup = tup
+        self.ipv6 = ipv6
 
     @classmethod
     def fromstring(cls, str_addr):
         """Initialize Addr from string."""
-        tup = str_addr.partition(':')
-        return cls((tup[0], tup[2]))
+        if str_addr.startswith('['):
+            # ipv6 addresses starts with [
+            endIndex = str_addr.rfind(']')
+            host = str_addr[:endIndex + 1]
+            port = ''
+            if len(str_addr) > endIndex + 2 and str_addr[endIndex + 1] == ':':
+                port = str_addr[endIndex + 2:]
+            return cls((host, port), ipv6=True)
+        else:
+            tup = str_addr.partition(':')
+            return cls((tup[0], tup[2]))
 
     def __str__(self):
         if self.tup[1]:
@@ -116,7 +129,16 @@ class Addr(object):
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
-            return self.tup == other.tup
+            if self.ipv6:
+                # compare normalized to take different
+                # styles of representation into account
+                return (other.ipv6 and
+                        self._normalize_ipv6(self.tup[0]) ==
+                        self._normalize_ipv6(other.tup[0]) and
+                        self.tup[1] == other.tup[1])
+            else:
+                return self.tup == other.tup
+
         return False
 
     def __hash__(self):
@@ -132,7 +154,44 @@ class Addr(object):
 
     def get_addr_obj(self, port):
         """Return new address object with same addr and new port."""
-        return self.__class__((self.tup[0], port))
+        return self.__class__((self.tup[0], port), self.ipv6)
+
+    def _normalize_ipv6(self, addr):
+        """Return IPv6 address in normalized form, helper function"""
+        addr = addr.lstrip("[")
+        addr = addr.rstrip("]")
+        return self._explode_ipv6(addr)
+
+    def get_ipv6_exploded(self):
+        """Return IPv6 in normalized form"""
+        if self.ipv6:
+            return ":".join(self._normalize_ipv6(self.tup[0]))
+        return ""
+
+    def _explode_ipv6(self, addr):
+        """Explode IPv6 address for comparison"""
+        result = ['0', '0', '0', '0', '0', '0', '0', '0']
+        addr_list = addr.split(":")
+        if len(addr_list) > len(result):
+            # too long, truncate
+            addr_list = addr_list[0:len(result)]
+        append_to_end = False
+        for i in range(0, len(addr_list)):
+            block = addr_list[i]
+            if len(block) == 0:
+                # encountered ::, so rest of the blocks should be
+                # appended to the end
+                append_to_end = True
+                continue
+            elif len(block) > 1:
+                # remove leading zeros
+                block = block.lstrip("0")
+            if not append_to_end:
+                result[i] = str(block)
+            else:
+                # count the location from the end using negative indices
+                result[i-len(addr_list)] = str(block)
+        return result
 
 
 class TLSSNI01(object):

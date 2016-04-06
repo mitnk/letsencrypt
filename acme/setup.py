@@ -4,7 +4,7 @@ from setuptools import setup
 from setuptools import find_packages
 
 
-version = '0.2.0.dev0'
+version = '0.5.0.dev0'
 
 # Please update tox.ini when modifying dependency version requirements
 install_requires = [
@@ -18,12 +18,14 @@ install_requires = [
     'pyrfc3339',
     'pytz',
     'requests',
-    'setuptools',  # pkg_resources
+    # For pkg_resources. >=1.0 so pip resolves it to a version cryptography
+    # will tolerate; see #2599:
+    'setuptools>=1.0',
     'six',
-    'werkzeug',
 ]
 
 # env markers in extras_require cause problems with older pip: #517
+# Keep in sync with conditional_requirements.py.
 if sys.version_info < (2, 7):
     install_requires.extend([
         # only some distros recognize stdlib argparse as already satisfying
@@ -33,15 +35,16 @@ if sys.version_info < (2, 7):
 else:
     install_requires.append('mock')
 
+dev_extras = [
+    'nose',
+    'pep8',
+    'tox',
+]
+
 docs_extras = [
     'Sphinx>=1.0',  # autodoc_member_order = 'bysource', autodoc_default_flags
     'sphinx_rtd_theme',
     'sphinxcontrib-programoutput',
-]
-
-testing_extras = [
-    'nose',
-    'tox',
 ]
 
 
@@ -73,8 +76,8 @@ setup(
     include_package_data=True,
     install_requires=install_requires,
     extras_require={
+        'dev': dev_extras,
         'docs': docs_extras,
-        'testing': testing_extras,
     },
     entry_points={
         'console_scripts': [

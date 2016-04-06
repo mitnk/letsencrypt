@@ -60,6 +60,8 @@ logger = logging.getLogger(__name__)
 #     sites-available doesn't allow immediate find_dir search even with save()
 #     and load()
 
+@zope.interface.implementer(interfaces.IAuthenticator, interfaces.IInstaller)
+@zope.interface.provider(interfaces.IPluginFactory)
 class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
     # pylint: disable=too-many-instance-attributes,too-many-public-methods
     """Apache configurator.
@@ -80,8 +82,6 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
     :ivar dict assoc: Mapping between domains and vhosts
 
     """
-    zope.interface.implements(interfaces.IAuthenticator, interfaces.IInstaller)
-    zope.interface.classProvides(interfaces.IPluginFactory)
 
     description = "Apache Web Server - Alpha"
 
@@ -106,7 +106,9 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
         add("handle-sites", default=constants.os_constant("handle_sites"),
             help="Let installer handle enabling sites for you." +
                  "(Only Ubuntu/Debian currently)")
-        le_util.add_deprecated_argument(add, "init-script", 1)
+        le_util.add_deprecated_argument(add, argument_name="ctl", nargs=1)
+        le_util.add_deprecated_argument(
+            add, argument_name="init-script", nargs=1)
 
     def __init__(self, *args, **kwargs):
         """Initialize an Apache Configurator.
@@ -155,7 +157,7 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
         # Set Version
         if self.version is None:
             self.version = self.get_version()
-        if self.version < (2, 4):
+        if self.version < (2, 2):
             raise errors.NotSupportedError(
                 "Apache Version %s not supported.", str(self.version))
 
@@ -305,6 +307,7 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
             if not vhost.ssl:
                 vhost = self.make_vhost_ssl(vhost)
 
+            self._add_servername_alias(target_name, vhost)
             self.assoc[target_name] = vhost
             return vhost
 
@@ -335,8 +338,25 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
                 raise errors.PluginError(
                     "VirtualHost not able to be selected.")
 
+        self._add_servername_alias(target_name, vhost)
         self.assoc[target_name] = vhost
         return vhost
+
+    def included_in_wildcard(self, names, target_name):
+        """Helper function to see if alias is covered by wildcard"""
+        target_name = target_name.split(".")[::-1]
+        wildcards = [domain.split(".")[1:] for domain in
+                     names if domain.startswith("*")]
+        for wildcard in wildcards:
+            if len(wildcard) > len(target_name):
+                continue
+            for idx, segment in enumerate(wildcard[::-1]):
+                if segment != target_name[idx]:
+                    break
+            else:
+                # https://docs.python.org/2/tutorial/controlflow.html#break-and-continue-statements-and-else-clauses-on-loops
+                return True
+        return False
 
     def _find_best_vhost(self, target_name):
         """Finds the best vhost for a target_name.
@@ -347,17 +367,21 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
         :returns: VHost or None
 
         """
-        # Points 4 - Servername SSL
-        # Points 3 - Address name with SSL
-        # Points 2 - Servername no SSL
+        # Points 6 - Servername SSL
+        # Points 5 - Wildcard SSL
+        # Points 4 - Address name with SSL
+        # Points 3 - Servername no SSL
+        # Points 2 - Wildcard no SSL
         # Points 1 - Address name with no SSL
         best_candidate = None
         best_points = 0
-
         for vhost in self.vhosts:
             if vhost.modmacro is True:
                 continue
-            if target_name in vhost.get_names():
+            names = vhost.get_names()
+            if target_name in names:
+                points = 3
+            elif self.included_in_wildcard(names, target_name):
                 points = 2
             elif any(addr.get_addr() == target_name for addr in vhost.addrs):
                 points = 1
@@ -367,7 +391,7 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
                 continue  # pragma: no cover
 
             if vhost.ssl:
-                points += 2
+                points += 3
 
             if points > best_points:
                 best_points = points
@@ -522,6 +546,8 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
             paths = self.aug.match(
                 ("/files%s//*[label()=~regexp('%s')]" %
                     (vhost_path, parser.case_i("VirtualHost"))))
+            paths = [path for path in paths if
+                     os.path.basename(path) == "VirtualHost"]
             for path in paths:
                 new_vhost = self._create_vhost(path)
                 realpath = os.path.realpath(new_vhost.filep)
@@ -643,11 +669,11 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
         """
 
         if self.conf("handle-modules"):
-            if "ssl_module" not in self.parser.modules:
-                self.enable_mod("ssl", temp=temp)
             if self.version >= (2, 4) and ("socache_shmcb_module" not in
                                            self.parser.modules):
                 self.enable_mod("socache_shmcb", temp=temp)
+            if "ssl_module" not in self.parser.modules:
+                self.enable_mod("ssl", temp=temp)
 
     def make_addrs_sni_ready(self, addrs):
         """Checks to see if the server is ready for SNI challenges.
@@ -692,7 +718,6 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
 
         # Reload augeas to take into account the new vhost
         self.aug.load()
-
         # Get Vhost augeas path for new vhost
         vh_p = self.aug.match("/files%s//* [label()=~regexp('%s')]" %
                               (ssl_fp, parser.case_i("VirtualHost")))
@@ -709,6 +734,7 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
 
         # Add directives
         self._add_dummy_ssl_directives(vh_p)
+        self.save()
 
         # Log actions and create save notes
         logger.info("Created an SSL vhost at %s", ssl_fp)
@@ -859,6 +885,25 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
                             "insert_key_file_path")
         self.parser.add_dir(vh_path, "Include", self.mod_ssl_conf)
 
+    def _add_servername_alias(self, target_name, vhost):
+        fp = vhost.filep
+        vh_p = self.aug.match("/files%s//* [label()=~regexp('%s')]" %
+                              (fp, parser.case_i("VirtualHost")))
+        if not vh_p:
+            return
+        vh_path = vh_p[0]
+        if (self.parser.find_dir("ServerName", target_name,
+                                 start=vh_path, exclude=False) or
+            self.parser.find_dir("ServerAlias", target_name,
+                                 start=vh_path, exclude=False)):
+            return
+        if not self.parser.find_dir("ServerName", None,
+                                    start=vh_path, exclude=False):
+            self.parser.add_dir(vh_path, "ServerName", target_name)
+        else:
+            self.parser.add_dir(vh_path, "ServerAlias", target_name)
+        self._add_servernames(vhost)
+
     def _add_name_vhost_if_necessary(self, vhost):
         """Add NameVirtualHost Directives if necessary for new vhost.
 
@@ -874,14 +919,22 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
         # See if the exact address appears in any other vhost
         # Remember 1.1.1.1:* == 1.1.1.1 -> hence any()
         for addr in vhost.addrs:
+            # In Apache 2.2, when a NameVirtualHost directive is not
+            # set, "*" and "_default_" will conflict when sharing a port
+            addrs = set((addr,))
+            if addr.get_addr() in ("*", "_default_"):
+                addrs.update(obj.Addr((a, addr.get_port(),))
+                             for a in ("*", "_default_"))
+
             for test_vh in self.vhosts:
                 if (vhost.filep != test_vh.filep and
-                        any(test_addr == addr for
+                        any(test_addr in addrs for
                             test_addr in test_vh.addrs) and
                         not self.is_name_vhost(addr)):
                     self.add_name_vhost(addr)
                     logger.info("Enabling NameVirtualHosts on %s", addr)
                     need_to_save = True
+                    break
 
         if need_to_save:
             self.save()
@@ -1048,7 +1101,12 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
             #     even with save() and load()
             if not self._is_rewrite_engine_on(general_vh):
                 self.parser.add_dir(general_vh.path, "RewriteEngine", "on")
-
+            names = ssl_vhost.get_names()
+            for idx, name in enumerate(names):
+                args = ["%{SERVER_NAME}", "={0}".format(name), "[OR]"]
+                if idx == len(names) - 1:
+                    args.pop()
+                self.parser.add_dir(general_vh.path, "RewriteCond", args)
             if self.get_version() >= (2, 3, 9):
                 self.parser.add_dir(general_vh.path, "RewriteRule",
                                     constants.REWRITE_HTTPS_ARGS_WITH_END)
@@ -1217,6 +1275,10 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
         # Second filter - check addresses
         for http_vh in candidate_http_vhs:
             if http_vh.same_server(ssl_vhost):
+                return http_vh
+        # Third filter - if none with same names, return generic
+        for http_vh in candidate_http_vhs:
+            if http_vh.same_server(ssl_vhost, generic=True):
                 return http_vh
 
         return None
@@ -1404,7 +1466,6 @@ class ApacheConfigurator(augeas_configurator.AugeasConfigurator):
 
         """
         self.config_test()
-        logger.debug(self.reverter.view_config_changes(for_logging=True))
         self._reload()
 
     def _reload(self):
@@ -1587,4 +1648,4 @@ def install_ssl_options_conf(options_ssl):
 
     # Check to make sure options-ssl.conf is installed
     if not os.path.isfile(options_ssl):
-        shutil.copyfile(constants.MOD_SSL_CONF_SRC, options_ssl)
+        shutil.copyfile(constants.os_constant("MOD_SSL_CONF_SRC"), options_ssl)

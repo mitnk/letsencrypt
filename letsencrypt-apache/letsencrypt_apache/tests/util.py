@@ -22,9 +22,9 @@ from letsencrypt_apache import obj
 
 class ApacheTest(unittest.TestCase):  # pylint: disable=too-few-public-methods
 
-    def setUp(self, test_dir="debian_apache_2_4/two_vhost_80",
-              config_root="debian_apache_2_4/two_vhost_80/apache2",
-              vhost_root="debian_apache_2_4/two_vhost_80/apache2/sites-available"):
+    def setUp(self, test_dir="debian_apache_2_4/multiple_vhosts",
+              config_root="debian_apache_2_4/multiple_vhosts/apache2",
+              vhost_root="debian_apache_2_4/multiple_vhosts/apache2/sites-available"):
         # pylint: disable=arguments-differ
         super(ApacheTest, self).setUp()
 
@@ -33,7 +33,7 @@ class ApacheTest(unittest.TestCase):  # pylint: disable=too-few-public-methods
             pkg="letsencrypt_apache.tests")
 
         self.ssl_options = common.setup_ssl_options(
-            self.config_dir, constants.MOD_SSL_CONF_SRC,
+            self.config_dir, constants.os_constant("MOD_SSL_CONF_SRC"),
             constants.MOD_SSL_CONF_DEST)
 
         self.config_path = os.path.join(self.temp_dir, config_root)
@@ -59,9 +59,9 @@ class ApacheTest(unittest.TestCase):  # pylint: disable=too-few-public-methods
 
 class ParserTest(ApacheTest):  # pytlint: disable=too-few-public-methods
 
-    def setUp(self, test_dir="debian_apache_2_4/two_vhost_80",
-              config_root="debian_apache_2_4/two_vhost_80/apache2",
-              vhost_root="debian_apache_2_4/two_vhost_80/apache2/sites-available"):
+    def setUp(self, test_dir="debian_apache_2_4/multiple_vhosts",
+              config_root="debian_apache_2_4/multiple_vhosts/apache2",
+              vhost_root="debian_apache_2_4/multiple_vhosts/apache2/sites-available"):
         super(ParserTest, self).setUp(test_dir, config_root, vhost_root)
 
         zope.component.provideUtility(display_util.FileDisplay(sys.stdout))
@@ -116,7 +116,7 @@ def get_apache_configurator(
 
 def get_vh_truth(temp_dir, config_name):
     """Return the ground truth for the specified directory."""
-    if config_name == "debian_apache_2_4/two_vhost_80":
+    if config_name == "debian_apache_2_4/multiple_vhosts":
         prefix = os.path.join(
             temp_dir, config_name, "apache2/sites-available")
         aug_pre = "/files" + prefix
@@ -133,8 +133,9 @@ def get_vh_truth(temp_dir, config_name):
             obj.VirtualHost(
                 os.path.join(prefix, "000-default.conf"),
                 os.path.join(aug_pre, "000-default.conf/VirtualHost"),
-                set([obj.Addr.fromstring("*:80")]), False, True,
-                "ip-172-30-0-17"),
+                set([obj.Addr.fromstring("*:80"),
+                     obj.Addr.fromstring("[::]:80")]),
+                False, True, "ip-172-30-0-17"),
             obj.VirtualHost(
                 os.path.join(prefix, "letsencrypt.conf"),
                 os.path.join(aug_pre, "letsencrypt.conf/VirtualHost"),
@@ -151,6 +152,11 @@ def get_vh_truth(temp_dir, config_name):
                 os.path.join(aug_pre, ("default-ssl-port-only.conf/"
                                        "IfModule/VirtualHost")),
                 set([obj.Addr.fromstring("_default_:443")]), True, False),
+            obj.VirtualHost(
+                os.path.join(prefix, "wildcard.conf"),
+                os.path.join(aug_pre, "wildcard.conf/VirtualHost"),
+                set([obj.Addr.fromstring("*:80")]), False, False,
+                "ip-172-30-0-17", aliases=["*.blue.purple.com"])
         ]
         return vh_truth
 

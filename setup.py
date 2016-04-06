@@ -42,13 +42,16 @@ install_requires = [
     'pyrfc3339',
     'python2-pythondialog>=3.2.2rc1',  # Debian squeeze support, cf. #280
     'pytz',
-    'setuptools',  # pkg_resources
+    # For pkg_resources. >=1.0 so pip resolves it to a version cryptography
+    # will tolerate; see #2599:
+    'setuptools>=1.0',
     'six',
     'zope.component',
     'zope.interface',
 ]
 
 # env markers in extras_require cause problems with older pip: #517
+# Keep in sync with conditional_requirements.py.
 if sys.version_info < (2, 7):
     install_requires.extend([
         # only some distros recognize stdlib argparse as already satisfying
@@ -56,14 +59,17 @@ if sys.version_info < (2, 7):
         'mock<1.1.0',
     ])
 else:
-    install_requires.extend([
-        'mock',
-    ])
+    install_requires.append('mock')
 
 dev_extras = [
     # Pin astroid==1.3.5, pylint==1.4.2 as a workaround for #289
     'astroid==1.3.5',
+    'coverage',
+    'nose',
+    'nosexcover',
+    'pep8',
     'pylint==1.4.2',  # upstream #248
+    'tox',
     'twine',
     'wheel',
 ]
@@ -73,14 +79,6 @@ docs_extras = [
     'Sphinx>=1.0',  # autodoc_member_order = 'bysource', autodoc_default_flags
     'sphinx_rtd_theme',
     'sphinxcontrib-programoutput',
-]
-
-testing_extras = [
-    'coverage',
-    'nose',
-    'nosexcover',
-    'pep8',
-    'tox',
 ]
 
 setup(
@@ -118,18 +116,15 @@ setup(
     extras_require={
         'dev': dev_extras,
         'docs': docs_extras,
-        'testing': testing_extras,
     },
 
-    tests_require=install_requires,
     # to test all packages run "python setup.py test -s
     # {acme,letsencrypt_apache,letsencrypt_nginx}"
     test_suite='letsencrypt',
 
     entry_points={
         'console_scripts': [
-            'letsencrypt = letsencrypt.cli:main',
-            'letsencrypt-renewer = letsencrypt.renewer:main',
+            'letsencrypt = letsencrypt.main:main',
         ],
         'letsencrypt.plugins': [
             'manual = letsencrypt.plugins.manual:Authenticator',

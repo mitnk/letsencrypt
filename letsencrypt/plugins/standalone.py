@@ -90,6 +90,9 @@ class ServerManager(object):
         logger.debug("Stopping server at %s:%d...",
                      *instance.server.socket.getsockname()[:2])
         instance.server.shutdown()
+        # Not calling server_close causes problems when renewing multiple
+        # certs with `letsencrypt renew` using TLSSNI01 and PyOpenSSL 0.13
+        instance.server.server_close()
         instance.thread.join()
         del self._instances[port]
 
@@ -132,6 +135,8 @@ def supported_challenges_validator(data):
     return data
 
 
+@zope.interface.implementer(interfaces.IAuthenticator)
+@zope.interface.provider(interfaces.IPluginFactory)
 class Authenticator(common.Plugin):
     """Standalone Authenticator.
 
@@ -140,8 +145,6 @@ class Authenticator(common.Plugin):
     challenges from the certificate authority. Therefore, it does not
     rely on any existing server program.
     """
-    zope.interface.implements(interfaces.IAuthenticator)
-    zope.interface.classProvides(interfaces.IPluginFactory)
 
     description = "Automatically use a temporary webserver"
 
@@ -200,7 +203,8 @@ class Authenticator(common.Plugin):
         return self.supported_challenges
 
     def perform(self, achalls):  # pylint: disable=missing-docstring
-        if any(util.already_listening(port) for port in self._necessary_ports):
+        renewer = self.config.verb == "renew"
+        if any(util.already_listening(port, renewer) for port in self._necessary_ports):
             raise errors.MisconfigurationError(
                 "At least one of the (possibly) required ports is "
                 "already taken.")
