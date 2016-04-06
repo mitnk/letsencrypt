@@ -179,11 +179,6 @@ s.serve_forever()" """
             with open(target_path, 'w') as f:
                 f.write(validation)
 
-            self._notify_and_wait(self.MESSAGE_TEMPLATE.format(
-                validation=validation, response=response,
-                uri=achall.chall.uri(achall.domain),
-                command=command))
-
         if not response.simple_verify(
                 achall.chall, achall.domain,
                 achall.account_key.public_key(), self.config.http01_port):
