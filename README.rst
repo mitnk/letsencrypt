@@ -5,7 +5,7 @@ Disclaimer
 ----------
 
 This is a **Hack Version** based on the Let's Encrypt offical Client.
-It's targeted on Nginx.
+It's targeted on Nginx. Only support Python 2.7
 
 
 Preparation
@@ -20,8 +20,7 @@ if you've already done it.
 
     $ git clone https://github.com/mitnk/letsencrypt
     $ cd letsencrypt
-    $ ./letsencrypt-auto --help
-    $ ./post-letsencrypt-auto.sh
+    $ ./install.sh
 
 This will create an virtualenv at ``~/.local/share/letsencrypt``.
 
