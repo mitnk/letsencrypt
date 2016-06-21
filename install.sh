@@ -24,5 +24,6 @@ else
     echo "please run ./install.sh in the repo root dir"
 fi
 
+$VENV_PIP install -U setuptools
 $VENV_PIP install .
 echo "Done."
