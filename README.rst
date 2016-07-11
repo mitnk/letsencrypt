@@ -29,7 +29,7 @@ This will create an virtualenv at ``~/.local/share/letsencrypt``.
 Put the following code into every domain server config
 in you Nginx.
 
-*Note: Please change `mitnk` to your username*
+**Note: Please change ``mitnk`` to your username**
 
 ::
 
@@ -42,7 +42,7 @@ Create the directories:
 
 ::
 
-    $ mkdir -p /home/mitnk/.well-known/acme-challenge/
+    $ mkdir -p ~/.well-known/acme-challenge/
 
 Then reload Nginx (e.g. ``sudo nginx -s reload``).
 
@@ -55,7 +55,7 @@ Enter virtualenv:
 
 ::
 
-    $ sudo /home/mitnk/.local/share/letsencrypt/bin/letsencrypt -d hugo.wang -d www.hugo.wang -a manual certonly
+    $ sudo ~/.local/share/letsencrypt/bin/letsencrypt -d hugo.wang -d www.hugo.wang -a manual certonly
 
 Reload Nginx & That's it.
 
