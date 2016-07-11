@@ -20,7 +20,7 @@ fi
 
 bootstrap/dev/venv.sh
 sudo venv/bin/letsencrypt certonly --debug --standalone -t --agree-dev-preview --agree-tos \
-                   --renew-by-default --redirect --register-unsafely-without-email \
+                   --redirect --register-unsafely-without-email \
                    --domain $PUBLIC_HOSTNAME --server $BOULDER_URL -v
 if [ $? -ne 0 ] ; then
     FAIL=1
@@ -36,7 +36,7 @@ if [ $? -ne 0 ] ; then
     FAIL=1
 fi
 
-sudo venv/bin/letsencrypt renew --renew-by-default
+sudo venv/bin/letsencrypt renew
 
 if [ $? -ne 0 ] ; then
     FAIL=1

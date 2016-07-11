@@ -133,51 +133,14 @@ s.serve_forever()" """
         # same server: default command doesn't support virtual hosts
         response, validation = achall.response_and_validation()
 
-        port = (response.port if self.config.http01_port is None
-                else int(self.config.http01_port))
-        command = self.CMD_TEMPLATE.format(
-            root=self._root, achall=achall, response=response,
-            # TODO(kuba): pipes still necessary?
-            validation=pipes.quote(validation),
-            encoded_token=achall.chall.encode("token"),
-            port=port)
-        if self.conf("test-mode"):
-            logger.debug("Test mode. Executing the manual command: %s", command)
-            # sh shipped with OS X does't support echo -n, but supports printf
-            try:
-                self._httpd = subprocess.Popen(
-                    command,
-                    # don't care about setting stdout and stderr,
-                    # we're in test mode anyway
-                    shell=True,
-                    executable=None,
-                    # "preexec_fn" is UNIX specific, but so is "command"
-                    preexec_fn=os.setsid)
-            except OSError as error:  # ValueError should not happen!
-                logger.debug(
-                    "Couldn't execute manual command: %s", error, exc_info=True)
-                return False
-            logger.debug("Manual command running as PID %s.", self._httpd.pid)
-            # give it some time to bootstrap, before we try to verify
-            # (cert generation in case of simpleHttpS might take time)
-            self._test_mode_busy_wait(port)
-            if self._httpd.poll() is not None:
-                raise errors.Error("Couldn't execute manual command")
-        else:
-            if not self.conf("public-ip-logging-ok"):
-                if not zope.component.getUtility(interfaces.IDisplay).yesno(
-                        self.IP_DISCLAIMER, "Yes", "No",
-                        cli_flag="--manual-public-ip-logging-ok"):
-                    raise errors.PluginError("Must agree to IP logging to proceed")
-
-            # a hack for Nginx Ad-hoc use
-            target_name, _ = validation.split('.')
-            target_dir = os.path.expanduser('~/.well-known/acme-challenge/')
-            if not os.path.exists(target_dir):
-                os.makedirs(target_dir)
-            target_path = os.path.join(target_dir, target_name)
-            with open(target_path, 'w') as f:
-                f.write(validation)
+        # a hack for Nginx Ad-hoc use
+        target_name, _ = validation.split('.')
+        target_dir = os.path.expanduser('~/.well-known/acme-challenge/')
+        if not os.path.exists(target_dir):
+            os.makedirs(target_dir)
+        target_path = os.path.join(target_dir, target_name)
+        with open(target_path, 'w') as f:
+            f.write(validation)
 
         if not response.simple_verify(
                 achall.chall, achall.domain,
@@ -185,13 +148,6 @@ s.serve_forever()" """
             logger.warning("Self-verify of challenge failed.")
 
         return response
-
-    def _notify_and_wait(self, message):  # pylint: disable=no-self-use
-        # TODO: IDisplay wraps messages, breaking the command
-        #answer = zope.component.getUtility(interfaces.IDisplay).notification(
-        #    message=message, height=25, pause=True)
-        sys.stdout.write(message)
-        raw_input("Press ENTER to continue")
 
     def cleanup(self, achalls):
         # pylint: disable=missing-docstring,no-self-use,unused-argument

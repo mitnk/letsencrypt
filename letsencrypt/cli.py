@@ -619,13 +619,6 @@ def prepare_and_parse_args(plugins, args, detect_defaults=False):
         version="%(prog)s {0}".format(letsencrypt.__version__),
         help="show program's version number and exit")
     helpful.add(
-        "automation", "--force-renewal", "--renew-by-default",
-        action="store_true", dest="renew_by_default", help="If a certificate "
-             "already exists for the requested domains, renew it now, "
-             "regardless of whether it is near expiry. (Often "
-             "--keep-until-expiring is more appropriate). Also implies "
-             "--expand.")
-    helpful.add(
         "automation", "--allow-subset-of-names", action="store_true",
         help="When performing domain validation, do not consider it a failure "
              "if authorizations can not be obtained for a strict subset of "

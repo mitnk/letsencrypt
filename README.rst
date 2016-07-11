@@ -55,7 +55,7 @@ Enter virtualenv:
 
 ::
 
-    $ sudo /home/mitnk/.local/share/letsencrypt/bin/letsencrypt --manual-public-ip-logging-ok --renew-by-default -d hugo.wang -d www.hugo.wang -a manual certonly
+    $ sudo /home/mitnk/.local/share/letsencrypt/bin/letsencrypt -d hugo.wang -d www.hugo.wang -a manual certonly
 
 Reload Nginx & That's it.
 

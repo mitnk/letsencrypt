@@ -29,7 +29,6 @@ common_no_force_renew() {
 
 common() {
     common_no_force_renew \
-        --renew-by-default \
         "$@"
 }
 
@@ -63,7 +62,7 @@ CheckCertCount 1
 common_no_force_renew renew
 CheckCertCount 1
 
-# --renew-by-default is used, so renewal should occur
+# renewal should occur
 common renew
 CheckCertCount 2
 

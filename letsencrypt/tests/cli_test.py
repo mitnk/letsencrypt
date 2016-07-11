@@ -581,8 +581,6 @@ class CLITest(unittest.TestCase):  # pylint: disable=too-many-public-methods
         self.assertEqual(get_utility().add_message.call_count, 1)
         self.assertTrue('dry run' in get_utility().add_message.call_args[0][0])
 
-        self._test_renewal_common(False, ['--renew-by-default', '-tvv', '--debug'],
-                                  log_out="Auto-renewal forced")
         self.assertEqual(get_utility().add_message.call_count, 1)
 
         self._test_renewal_common(False, ['-tvv', '--debug', '--keep'],
@@ -1035,10 +1033,10 @@ class SetByCliTest(unittest.TestCase):
     def _test_report_config_interaction_common(self):
         """Tests implied interaction between manual flags.
 
-        --manual implies --manual-test-mode which implies
-        --manual-public-ip-logging-ok. These interactions don't actually
-        exist in the client, but are used here for testing purposes.
+        --manual implies --manual-test-mode
 
+        These interactions don't actually
+        exist in the client, but are used here for testing purposes.
         """
 
         args = ['--manual']

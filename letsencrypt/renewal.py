@@ -192,17 +192,7 @@ def _restore_required_config_elements(config, renewalparams):
 
 def should_renew(config, lineage):
     "Return true if any of the circumstances for automatic renewal apply."
-    if config.renew_by_default:
-        logger.info("Auto-renewal forced with --force-renewal...")
-        return True
-    if lineage.should_autorenew(interactive=True):
-        logger.info("Cert is due for renewal, auto-renewing...")
-        return True
-    if config.dry_run:
-        logger.info("Cert not due for renewal, but simulating renewal for dry run")
-        return True
-    logger.info("Cert not yet due for renewal")
-    return False
+    return True
 
 
 def _avoid_invalidating_lineage(config, lineage, original_server):

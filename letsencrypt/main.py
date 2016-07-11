@@ -123,7 +123,7 @@ def _handle_subset_cert_request(config, domains, cert):
              existing,
              ", ".join(domains),
              br=os.linesep)
-    if config.expand or config.renew_by_default or zope.component.getUtility(
+    if config.expand or zope.component.getUtility(
             interfaces.IDisplay).yesno(question, "Expand", "Cancel",
                                        cli_flag="--expand"):
         return "renew", cert
@@ -165,28 +165,7 @@ def _handle_identical_cert_request(config, cert):
         "domains you requested and isn't close to expiry."
         "{br}(ref: {0}){br}{br}What would you like to do?"
     ).format(cert.configfile.filename, br=os.linesep)
-
-    if config.verb == "run":
-        keep_opt = "Attempt to reinstall this existing certificate"
-    elif config.verb == "certonly":
-        keep_opt = "Keep the existing certificate for now"
-    choices = [keep_opt,
-               "Renew & replace the cert (limit ~5 per 7 days)"]
-
-    display = zope.component.getUtility(interfaces.IDisplay)
-    response = display.menu(question, choices, "OK", "Cancel", default=0)
-    if response[0] == display_util.CANCEL:
-        # TODO: Add notification related to command-line options for
-        #       skipping the menu for this case.
-        raise errors.Error(
-            "User chose to cancel the operation and may "
-            "reinvoke the client.")
-    elif response[1] == 0:
-        return "reinstall", cert
-    elif response[1] == 1:
-        return "renew", cert
-    else:
-        assert False, "This is impossible"
+    return "renew", cert
 
 
 def _treat_as_renewal(config, domains):
