@@ -15,16 +15,16 @@ The **Preparation** only need to do once. Jump to **Usage** section
 if you've already done it.
 
 
-0) Pre-requirements
+0) **Pre-requirements**
+
 
 - setuptools
 - pip
 - virtualenv
 
+::
 
-```
-$ sudo apt-get install dialog
-```
+    $ sudo apt-get install dialog
 
 
 1) **Checkout the code & build the virtualenv**
